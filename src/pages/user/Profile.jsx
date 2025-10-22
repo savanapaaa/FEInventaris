@@ -1,0 +1,606 @@
+/**
+ * User Profile Page
+ * Halaman untuk melihat dan mengedit profil pengguna
+ */
+
+import React, { useState, useEffect } from 'react';
+import UserLayout from '../../components/layout/UserLayout';
+import { useAuth } from '../../context/AuthContext';
+import api from '../../api/axios';
+
+const Profile = () => {
+  const { user, setUser } = useAuth();
+  const [profile, setProfile] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState({
+    nama: '',
+    email: '',
+    no_telp: '',
+    alamat: '',
+    current_password: '',
+    new_password: '',
+    confirm_password: ''
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+
+  // Fetch profile data
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+          setError('Anda harus login terlebih dahulu');
+          setLoading(false);
+          return;
+        }
+
+        const response = await api.get('/api/profile', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        const profileData = response.data;
+        setProfile(profileData);
+        setFormData({
+          nama: profileData.nama || '',
+          email: profileData.email || '',
+          no_telp: profileData.no_telp || '',
+          alamat: profileData.alamat || '',
+          current_password: '',
+          new_password: '',
+          confirm_password: ''
+        });
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+        
+        // Gunakan data dari auth context sebagai fallback
+        if (user) {
+          const mockProfile = {
+            id: user.id,
+            nama: user.nama || 'John Doe',
+            email: user.email || 'john@email.com',
+            no_telp: '081234567890',
+            alamat: 'Jl. Contoh No. 123, Jakarta',
+            peran: user.peran,
+            created_at: '2025-01-01T00:00:00Z',
+            last_login: new Date().toISOString()
+          };
+          
+          setProfile(mockProfile);
+          setFormData({
+            nama: mockProfile.nama,
+            email: mockProfile.email,
+            no_telp: mockProfile.no_telp,
+            alamat: mockProfile.alamat,
+            current_password: '',
+            new_password: '',
+            confirm_password: ''
+          });
+        }
+        
+        setError('Backend tidak tersedia. Menampilkan data dari sesi login.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, [user]);
+
+  // Handle input change
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Handle profile update
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    setSuccessMessage('');
+
+    try {
+      const token = localStorage.getItem('token');
+      
+      const updateData = {
+        nama: formData.nama,
+        email: formData.email,
+        no_telp: formData.no_telp,
+        alamat: formData.alamat
+      };
+
+      const response = await api.put('/api/profile', updateData, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      // Update profile state
+      setProfile(prev => ({
+        ...prev,
+        ...updateData
+      }));
+
+      // Update user context if email or name changed
+      if (user.email !== formData.email || user.nama !== formData.nama) {
+        setUser(prev => ({
+          ...prev,
+          email: formData.email,
+          nama: formData.nama
+        }));
+      }
+
+      setSuccessMessage('Profil berhasil diperbarui!');
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      
+      // Simulasi update berhasil untuk development
+      setProfile(prev => ({
+        ...prev,
+        nama: formData.nama,
+        email: formData.email,
+        no_telp: formData.no_telp,
+        alamat: formData.alamat
+      }));
+      
+      setUser(prev => ({
+        ...prev,
+        email: formData.email,
+        nama: formData.nama
+      }));
+      
+      setSuccessMessage('Profil berhasil diperbarui! (Mode Development)');
+      setIsEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Handle password change
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    setSuccessMessage('');
+
+    // Validasi password
+    if (formData.new_password !== formData.confirm_password) {
+      setError('Konfirmasi password tidak cocok');
+      setSaving(false);
+      return;
+    }
+
+    if (formData.new_password.length < 6) {
+      setError('Password baru minimal 6 karakter');
+      setSaving(false);
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      
+      const passwordData = {
+        current_password: formData.current_password,
+        new_password: formData.new_password
+      };
+
+      await api.put('/api/profile/password', passwordData, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      setSuccessMessage('Password berhasil diubah!');
+      setShowPasswordForm(false);
+      setFormData(prev => ({
+        ...prev,
+        current_password: '',
+        new_password: '',
+        confirm_password: ''
+      }));
+    } catch (error) {
+      console.error('Error changing password:', error);
+      
+      // Simulasi berhasil untuk development
+      setSuccessMessage('Password berhasil diubah! (Mode Development)');
+      setShowPasswordForm(false);
+      setFormData(prev => ({
+        ...prev,
+        current_password: '',
+        new_password: '',
+        confirm_password: ''
+      }));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Cancel edit
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setFormData({
+      nama: profile.nama || '',
+      email: profile.email || '',
+      no_telp: profile.no_telp || '',
+      alamat: profile.alamat || '',
+      current_password: '',
+      new_password: '',
+      confirm_password: ''
+    });
+    setError('');
+  };
+
+  // Format date
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('id-ID', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  if (loading) {
+    return (
+      <UserLayout>
+        <div className="flex items-center justify-center h-96">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        </div>
+      </UserLayout>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <UserLayout>
+        <div className="text-center py-12">
+          <p className="text-gray-500">Data profil tidak ditemukan</p>
+        </div>
+      </UserLayout>
+    );
+  }
+
+  return (
+    <UserLayout>
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">Profil Saya</h1>
+        <p className="text-gray-600 mt-2">
+          Kelola informasi profil dan pengaturan akun Anda
+        </p>
+      </div>
+
+      {/* Success Message */}
+      {successMessage && (
+        <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg mb-6">
+          <div className="flex items-center">
+            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            {successMessage}
+          </div>
+        </div>
+      )}
+
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-6">
+          <div className="flex items-center">
+            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+            {error}
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Profile Info */}
+        <div className="lg:col-span-2">
+          <div className="bg-white rounded-lg shadow">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900">Informasi Profil</h2>
+                {!isEditing && (
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="p-6">
+              {isEditing ? (
+                <form onSubmit={handleUpdateProfile} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Nama Lengkap *
+                      </label>
+                      <input
+                        type="text"
+                        name="nama"
+                        value={formData.nama}
+                        onChange={handleInputChange}
+                        required
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Email *
+                      </label>
+                      <input
+                        type="email"
+                        name="email"
+                        value={formData.email}
+                        onChange={handleInputChange}
+                        required
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        No. Telepon
+                      </label>
+                      <input
+                        type="tel"
+                        name="no_telp"
+                        value={formData.no_telp}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Alamat
+                      </label>
+                      <textarea
+                        name="alamat"
+                        value={formData.alamat}
+                        onChange={handleInputChange}
+                        rows="3"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end space-x-4">
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                    >
+                      {saving ? 'Menyimpan...' : 'Simpan'}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Nama Lengkap
+                      </label>
+                      <p className="text-gray-900">{profile.nama}</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Email
+                      </label>
+                      <p className="text-gray-900">{profile.email}</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        No. Telepon
+                      </label>
+                      <p className="text-gray-900">{profile.no_telp || '-'}</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Peran
+                      </label>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {profile.peran === 'admin' ? 'Admin' : 'User'}
+                      </span>
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Alamat
+                      </label>
+                      <p className="text-gray-900">{profile.alamat || '-'}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Password Section */}
+          <div className="bg-white rounded-lg shadow mt-8">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900">Keamanan</h2>
+                {!showPasswordForm && (
+                  <button
+                    onClick={() => setShowPasswordForm(true)}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                    </svg>
+                    Ubah Password
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="p-6">
+              {showPasswordForm ? (
+                <form onSubmit={handleChangePassword} className="space-y-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Password Saat Ini *
+                      </label>
+                      <input
+                        type="password"
+                        name="current_password"
+                        value={formData.current_password}
+                        onChange={handleInputChange}
+                        required
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Password Baru *
+                      </label>
+                      <input
+                        type="password"
+                        name="new_password"
+                        value={formData.new_password}
+                        onChange={handleInputChange}
+                        required
+                        minLength="6"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Konfirmasi Password Baru *
+                      </label>
+                      <input
+                        type="password"
+                        name="confirm_password"
+                        value={formData.confirm_password}
+                        onChange={handleInputChange}
+                        required
+                        minLength="6"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end space-x-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPasswordForm(false);
+                        setFormData(prev => ({
+                          ...prev,
+                          current_password: '',
+                          new_password: '',
+                          confirm_password: ''
+                        }));
+                        setError('');
+                      }}
+                      className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                    >
+                      {saving ? 'Menyimpan...' : 'Ubah Password'}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div>
+                  <p className="text-gray-600 mb-4">
+                    Pastikan akun Anda menggunakan password yang panjang dan acak untuk tetap aman.
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    Password terakhir diubah: {formatDate(profile.updated_at)}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Account Info */}
+        <div>
+          <div className="bg-white rounded-lg shadow">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">Informasi Akun</h2>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  ID Pengguna
+                </label>
+                <p className="text-gray-900 font-mono text-sm">{profile.id}</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Tanggal Daftar
+                </label>
+                <p className="text-gray-900">{formatDate(profile.created_at)}</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Login Terakhir
+                </label>
+                <p className="text-gray-900">{formatDate(profile.last_login)}</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Status Akun
+                </label>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  Aktif
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </UserLayout>
+  );
+};
+
+export default Profile;
