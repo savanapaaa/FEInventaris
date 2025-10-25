@@ -30,7 +30,7 @@ const ProductCard = ({ product, onBorrow }) => {
           <div className="flex justify-between items-center text-sm">
             <span className="text-gray-500">Kategori:</span>
             <span className="font-medium text-gray-700">
-              {product.nama_kategori || '-'}
+              {product.nama_kategori || product.kategori_nama || '-'}
             </span>
           </div>
           

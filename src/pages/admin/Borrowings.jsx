@@ -14,9 +14,18 @@ const Borrowings = () => {
   const fetchBorrowings = async () => {
     try {
       const response = await axios.get('/api/peminjaman');
-      setBorrowings(response.data.data || response.data);
+      const data = response.data.data || response.data;
+      
+      // Debug: Log struktur data untuk melihat field yang tersedia
+      if (data && data.length > 0) {
+        console.log('🔍 Struktur data peminjaman:', data[0]);
+        console.log('📋 Field yang tersedia:', Object.keys(data[0]));
+      }
+      
+      setBorrowings(data);
     } catch (error) {
       console.error('Error fetching borrowings:', error);
+      setBorrowings([]); // Set empty array jika error
     } finally {
       setLoading(false);
     }
@@ -85,9 +94,10 @@ const Borrowings = () => {
     }
   };
 
-  const isOverdue = (tanggal_kembali, status) => {
+  const isOverdue = (tanggal_kembali_rencana, status) => {
     if (status === 'dikembalikan' || status === 'returned') return false;
-    return new Date(tanggal_kembali) < new Date();
+    if (!tanggal_kembali_rencana) return false;
+    return new Date(tanggal_kembali_rencana) < new Date();
   };
 
   const filteredBorrowings = borrowings.filter(borrowing => {
@@ -170,7 +180,7 @@ const Borrowings = () => {
             </div>
           </div>
 
-          <div className="bg-red-50 rounded-lg p-6">
+                <div className="bg-red-50 rounded-lg p-6">
             <div className="flex items-center">
               <div className="p-2 bg-red-100 rounded-md">
                 <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -180,13 +190,11 @@ const Borrowings = () => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-red-600">Terlambat</p>
                 <p className="text-2xl font-semibold text-red-900">
-                  {borrowings.filter(b => isOverdue(b.tanggal_kembali, b.status) && b.status !== 'returned').length}
+                  {borrowings.filter(b => isOverdue(b.tanggal_kembali_rencana, b.status) && b.status !== 'returned').length}
                 </p>
               </div>
             </div>
-          </div>
-
-          <div className="bg-blue-50 rounded-lg p-6">
+          </div>          <div className="bg-blue-50 rounded-lg p-6">
             <div className="flex items-center">
               <div className="p-2 bg-blue-100 rounded-md">
                 <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -230,31 +238,39 @@ const Borrowings = () => {
               {filteredBorrowings.map((borrowing) => (
                 <tr key={borrowing.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{borrowing.user_nama}</div>
-                    <div className="text-sm text-gray-500">{borrowing.user_email}</div>
+                    <div className="text-sm font-medium text-gray-900">
+                      {borrowing.peminjam_nama || borrowing.user_nama || borrowing.nama_pengguna || `ID: ${borrowing.peminjam_id}`}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {borrowing.peminjam_email || borrowing.user_email || borrowing.email || '-'}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{borrowing.produk_nama}</div>
-                    <div className="text-sm text-gray-500">Qty: {borrowing.jumlah}</div>
+                    <div className="text-sm font-medium text-gray-900">
+                      {borrowing.produk_nama || borrowing.nama || `Produk ID: ${borrowing.produk_id}`}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {borrowing.keperluan ? `Keperluan: ${borrowing.keperluan}` : '-'}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {new Date(borrowing.tanggal_pinjam).toLocaleDateString('id-ID')}
+                    {borrowing.tanggal_pinjam ? new Date(borrowing.tanggal_pinjam).toLocaleDateString('id-ID') : '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <div className={isOverdue(borrowing.tanggal_kembali, borrowing.status) && borrowing.status !== 'returned' ? 'text-red-600 font-medium' : ''}>
-                      {new Date(borrowing.tanggal_kembali).toLocaleDateString('id-ID')}
-                      {isOverdue(borrowing.tanggal_kembali, borrowing.status) && borrowing.status !== 'returned' && (
+                    <div className={isOverdue(borrowing.tanggal_kembali_rencana, borrowing.status) && borrowing.status !== 'returned' ? 'text-red-600 font-medium' : ''}>
+                      {borrowing.tanggal_kembali_rencana ? new Date(borrowing.tanggal_kembali_rencana).toLocaleDateString('id-ID') : '-'}
+                      {isOverdue(borrowing.tanggal_kembali_rencana, borrowing.status) && borrowing.status !== 'returned' && (
                         <div className="text-xs text-red-500">Terlambat</div>
                       )}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      isOverdue(borrowing.tanggal_kembali, borrowing.status) && borrowing.status !== 'returned'
+                      isOverdue(borrowing.tanggal_kembali_rencana, borrowing.status) && borrowing.status !== 'returned'
                         ? getStatusColor('overdue')
                         : getStatusColor(borrowing.status)
                     }`}>
-                      {isOverdue(borrowing.tanggal_kembali, borrowing.status) && borrowing.status !== 'returned'
+                      {isOverdue(borrowing.tanggal_kembali_rencana, borrowing.status) && borrowing.status !== 'returned'
                         ? getStatusText('overdue')
                         : getStatusText(borrowing.status)
                       }

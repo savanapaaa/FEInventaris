@@ -24,10 +24,12 @@ const Products = () => {
 
   const fetchProducts = async () => {
     try {
+      console.log('🔍 Fetching products...');
       const response = await axios.get('/api/produk');
+      console.log('✅ Products response:', response.data);
       setProducts(response.data.data || response.data);
     } catch (error) {
-      console.error('Error fetching products:', error);
+      console.error('❌ Error fetching products:', error);
     } finally {
       setLoading(false);
     }
@@ -35,28 +37,86 @@ const Products = () => {
 
   const fetchCategories = async () => {
     try {
+      console.log('🔍 Fetching categories...');
       const response = await axios.get('/api/kategori');
+      console.log('✅ Categories response:', response.data);
       setCategories(response.data.data || response.data);
     } catch (error) {
-      console.error('Error fetching categories:', error);
+      console.error('❌ Error fetching categories:', error);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    console.log('📤 Data yang akan dikirim:', formData);
+    
     try {
       if (selectedProduct) {
-        // Update product
-        await axios.put(`/api/produk/${selectedProduct.id}`, formData);
+        // Workaround: Backend might not have proper PUT endpoint
+        // Let's just show an error message for now and suggest manual update
+        console.log('🔄 Attempting to update product:', selectedProduct.id);
+        
+        const updateData = {
+          nama: formData.nama,
+          deskripsi: formData.deskripsi,
+          kategori_id: parseInt(formData.kategori_id),
+          jumlah_stok: parseInt(formData.jumlah_stok),
+          stok_minimum: parseInt(formData.stok_minimum),
+          status_peminjaman: formData.status_peminjaman
+        };
+        
+        console.log('🔄 Sending update data:', updateData);
+        
+        try {
+          // Try the standard PUT method first
+          await axios.put(`/api/produk/${selectedProduct.id}`, updateData);
+          alert('Produk berhasil diperbarui!');
+        } catch (putError) {
+          console.error('PUT method failed:', putError);
+          
+          // If PUT fails, inform user that update is not available
+          alert('Maaf, fitur update produk belum tersedia di backend.\n\nUntuk mengubah produk:\n1. Hapus produk yang lama\n2. Tambah produk baru dengan data yang diinginkan');
+          
+          // Don't close modal so user can copy the data
+          return;
+        }
       } else {
         // Create new product
-        await axios.post('/api/produk', formData);
+        console.log('➕ Creating new product');
+        const createData = {
+          nama: formData.nama,
+          deskripsi: formData.deskripsi,
+          kategori_id: parseInt(formData.kategori_id),
+          jumlah_stok: parseInt(formData.jumlah_stok),
+          stok_minimum: parseInt(formData.stok_minimum),
+          status_peminjaman: formData.status_peminjaman
+        };
+        
+        await axios.post('/api/produk', createData);
+        alert('Produk berhasil ditambahkan!');
       }
       fetchProducts();
       closeModal();
     } catch (error) {
-      console.error('Error saving product:', error);
-      alert('Terjadi kesalahan saat menyimpan data produk');
+      console.error('📋 Error details:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        config: error.config
+      });
+      
+      let errorMessage = 'Terjadi kesalahan saat menyimpan data produk';
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        const validationErrors = error.response.data.errors.map(err => `- ${err.msg}`).join('\n');
+        errorMessage = `Validasi gagal:\n${validationErrors}`;
+      }
+      
+      alert(errorMessage);
     }
   };
 
@@ -68,7 +128,9 @@ const Products = () => {
       kategori_id: product.kategori_id,
       jumlah_stok: product.jumlah_stok,
       stok_minimum: product.stok_minimum || 1,
-      status_peminjaman: product.status_peminjaman || 'tersedia'
+      status_peminjaman: product.status_peminjaman || 'tersedia',
+      // Include existing gambar to prevent backend errors
+      gambar: product.gambar || ''
     });
     setShowModal(true);
   };
@@ -158,7 +220,7 @@ const Products = () => {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-500">Kategori:</span>
-                  <span className="font-medium">{product.kategori_nama || 'Tidak ada kategori'}</span>
+                  <span className="font-medium">{product.nama_kategori || product.nama || 'Tidak ada kategori'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Stok:</span>
@@ -270,6 +332,19 @@ const Products = () => {
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                     required
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Status Peminjaman</label>
+                  <select
+                    value={formData.status_peminjaman}
+                    onChange={(e) => setFormData({...formData, status_peminjaman: e.target.value})}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  >
+                    <option value="tersedia">Tersedia</option>
+                    <option value="dipinjam">Dipinjam</option>
+                    <option value="maintenance">Maintenance</option>
+                  </select>
                 </div>
                 <div className="flex justify-end space-x-2 pt-4">
                   <button

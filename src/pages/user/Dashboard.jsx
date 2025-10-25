@@ -93,9 +93,18 @@ const UserDashboard = () => {
         return;
       }
 
-      // Send request with proper structure
+      console.log('📤 Sending borrow request:', {
+        produk_id: productId,
+        jumlah_dipinjam: formData.jumlah_dipinjam,
+        tanggal_kembali_rencana: formData.tanggal_kembali_rencana,
+        keperluan: formData.keperluan,
+        kondisi_pinjam: formData.kondisi_pinjam
+      });
+
+      // Send request with proper structure including quantity
       const response = await api.post('/api/peminjaman', {
         produk_id: productId,
+        jumlah_dipinjam: formData.jumlah_dipinjam,
         tanggal_kembali_rencana: formData.tanggal_kembali_rencana,
         keperluan: formData.keperluan,
         kondisi_pinjam: formData.kondisi_pinjam
@@ -106,11 +115,29 @@ const UserDashboard = () => {
         }
       });
 
+      console.log('✅ Borrow response:', response.data);
+
       setShowModal(false);
       setSelectedProduct(null);
-      alert('Peminjaman berhasil dikirim!');
-      // Refresh product list to get updated stock
-      window.location.reload();
+      
+      // Update local state to reduce stock immediately
+      setProduk(prevProduk => 
+        prevProduk.map(product => 
+          product.id === productId 
+            ? { 
+                ...product, 
+                jumlah_stok: (product.jumlah_stok || product.stok) - formData.jumlah_dipinjam,
+                status_peminjaman: ((product.jumlah_stok || product.stok) - formData.jumlah_dipinjam) <= 0 ? 'tidak_tersedia' : 'tersedia',
+                status_display: ((product.jumlah_stok || product.stok) - formData.jumlah_dipinjam) <= 0 ? 'Stok Habis' : 'Tersedia'
+              }
+            : product
+        )
+      );
+      
+      alert(`Peminjaman berhasil! ${formData.jumlah_dipinjam} unit ${selectedProduct?.nama} telah dipinjam.`);
+      
+      // Optional: Refresh from server to get real data
+      // window.location.reload();
     } catch (error) {
       console.error('Error requesting product:', error);
       
@@ -211,14 +238,14 @@ const UserDashboard = () => {
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-gray-500">Kategori:</span>
                     <span className="font-medium text-gray-700">
-                      {product.nama_kategori || '-'}
+                      {product.nama_kategori || product.kategori_nama || '-'}
                     </span>
                   </div>
                   
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-gray-500">Stok:</span>
-                    <span className={`font-medium ${product.jumlah_stok > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {product.jumlah_stok} unit
+                    <span className={`font-medium ${(product.jumlah_stok || product.stok) > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {product.jumlah_stok || product.stok} unit
                     </span>
                   </div>
 
@@ -235,7 +262,7 @@ const UserDashboard = () => {
                 </div>
 
                 {/* Action Button */}
-                {product.jumlah_stok > 0 && product.status_peminjaman === 'tersedia' ? (
+                {(product.jumlah_stok || product.stok) > 0 && product.status_peminjaman === 'tersedia' ? (
                   <button
                     onClick={() => handleBorrow(product)}
                     className="w-full mt-4 py-3 px-4 rounded-lg font-semibold bg-indigo-600 hover:bg-indigo-700 text-white transition-all duration-200 hover:shadow-lg transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
@@ -247,7 +274,7 @@ const UserDashboard = () => {
                     disabled
                     className="w-full mt-4 py-3 px-4 rounded-lg font-semibold bg-gray-300 text-gray-600 cursor-not-allowed"
                   >
-                    {product.jumlah_stok === 0 ? 'Stok Habis' : 'Tidak Tersedia'}
+                    {(product.jumlah_stok || product.stok) === 0 ? 'Stok Habis' : 'Tidak Tersedia'}
                   </button>
                 )}
               </div>

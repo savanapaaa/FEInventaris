@@ -37,80 +37,113 @@ const MyBorrowings = () => {
           return;
         }
 
-        const response = await api.get('/api/peminjaman/user', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (Array.isArray(response.data)) {
-          setBorrowings(response.data);
-        } else if (response.data && Array.isArray(response.data.data)) {
-          setBorrowings(response.data.data);
-        } else {
-          setBorrowings([]);
+        console.log('🔍 Fetching user borrowings for:', user?.nama_pengguna);
+
+        // Try multiple endpoints for user borrowings
+        let response;
+        try {
+          // Primary endpoint: /api/peminjaman/user
+          response = await api.get('/api/peminjaman/user', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+        } catch (primaryError) {
+          console.log('Primary endpoint failed, trying /api/peminjaman with user filter...');
+          // Fallback: /api/peminjaman (then filter by user on frontend)
+          response = await api.get('/api/peminjaman', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
         }
+        
+        let borrowingsData = [];
+        if (Array.isArray(response.data)) {
+          borrowingsData = response.data;
+        } else if (response.data && Array.isArray(response.data.data)) {
+          borrowingsData = response.data.data;
+        }
+
+        // Filter by current user if we got all borrowings
+        const userBorrowings = borrowingsData.filter(borrowing => 
+          borrowing.id_pengguna === user?.id_pengguna || 
+          borrowing.user_id === user?.id_pengguna ||
+          borrowing.peminjam_id === user?.id_pengguna
+        );
+
+        console.log('✅ User borrowings:', userBorrowings);
+        setBorrowings(userBorrowings);
+
       } catch (error) {
-        console.error('Error fetching borrowings:', error);
+        console.error('❌ Error fetching borrowings:', error);
         
-        // Mock data untuk development
-        const mockBorrowings = [
-          {
-            id: 1,
-            produk_nama: "Proyektor",
-            kategori: "Elektronik",
-            tanggal_pinjam: "2025-10-05",
-            tanggal_kembali_rencana: "2025-10-12",
-            tanggal_kembali_aktual: null,
-            status: "borrowed",
-            status_display: "Sedang Dipinjam",
-            keperluan: "Presentasi client",
-            kondisi_pinjam: "Baik",
-            kondisi_kembali: null,
-            catatan_admin: "Disetujui untuk presentasi",
-            created_at: "2025-10-05T08:00:00Z"
-          },
-          {
-            id: 2,
-            produk_nama: "Laptop Dell XPS 13",
-            kategori: "Elektronik",
-            tanggal_pinjam: "2025-10-01",
-            tanggal_kembali_rencana: "2025-10-08",
-            tanggal_kembali_aktual: "2025-10-07",
-            status: "returned",
-            status_display: "Sudah Dikembalikan",
-            keperluan: "Meeting dengan vendor",
-            kondisi_pinjam: "Baik",
-            kondisi_kembali: "Baik",
-            catatan_admin: "Dikembalikan tepat waktu",
-            created_at: "2025-10-01T09:00:00Z"
-          },
-          {
-            id: 3,
-            produk_nama: "Whiteboard",
-            kategori: "Alat Tulis",
-            tanggal_pinjam: null,
-            tanggal_kembali_rencana: "2025-10-15",
-            tanggal_kembali_aktual: null,
-            status: "pending",
-            status_display: "Menunggu Persetujuan",
-            keperluan: "Workshop tim",
-            kondisi_pinjam: "Baik",
-            kondisi_kembali: null,
-            catatan_admin: null,
-            created_at: "2025-10-08T14:00:00Z"
+        // User-specific mock data based on logged in user
+        const getUserMockData = () => {
+          const currentUser = user?.nama_pengguna || 'unknown';
+          
+          if (currentUser === 'fiqa') {
+            return [
+              {
+                id: 101,
+                produk_nama: "Laptop Dell XPS 13",
+                kategori: "Elektronik",
+                tanggal_pinjam: "2025-10-20",
+                tanggal_kembali_rencana: "2025-10-27", 
+                tanggal_kembali_aktual: null,
+                status: "borrowed",
+                status_display: "Sedang Dipinjam",
+                keperluan: "Meeting dengan vendor",
+                kondisi_pinjam: "Baik",
+                kondisi_kembali: null,
+                catatan_admin: "Disetujui untuk meeting",
+                created_at: "2025-10-20T09:00:00Z"
+              },
+              {
+                id: 102,
+                produk_nama: "Projektor",
+                kategori: "Elektronik", 
+                tanggal_pinjam: "2025-10-15",
+                tanggal_kembali_rencana: "2025-10-22",
+                tanggal_kembali_aktual: "2025-10-21",
+                status: "returned",
+                status_display: "Sudah Dikembalikan",
+                keperluan: "Presentasi client",
+                kondisi_pinjam: "Baik",
+                kondisi_kembali: "Baik", 
+                catatan_admin: "Dikembalikan tepat waktu",
+                created_at: "2025-10-15T08:00:00Z"
+              }
+            ];
+          } else if (currentUser === 'john') {
+            return [
+              {
+                id: 201,
+                produk_nama: "Whiteboard Portable",
+                kategori: "Alat Tulis",
+                tanggal_pinjam: null,
+                tanggal_kembali_rencana: "2025-10-30",
+                tanggal_kembali_aktual: null,
+                status: "pending", 
+                status_display: "Menunggu Persetujuan",
+                keperluan: "Workshop tim",
+                kondisi_pinjam: "Baik",
+                kondisi_kembali: null,
+                catatan_admin: null,
+                created_at: "2025-10-24T14:00:00Z"
+              }
+            ];
+          } else {
+            return []; // User lain tidak punya peminjaman
           }
-        ];
+        };
         
+        const mockBorrowings = getUserMockData();
         setBorrowings(mockBorrowings);
-        setError('Backend tidak tersedia. Menampilkan data contoh.');
+        setError(`Backend tidak tersedia. Menampilkan data contoh untuk user: ${user?.nama_pengguna || 'unknown'}`);
       } finally {
         setLoading(false);
       }
     };
 
     fetchBorrowings();
-  }, []);
+  }, [user]); // Add user dependency
 
   // Filter borrowings
   const filteredBorrowings = borrowings.filter(borrowing => {
@@ -224,7 +257,7 @@ const MyBorrowings = () => {
                 <div className="flex-1">
                   <div className="flex items-center space-x-3 mb-3">
                     <h3 className="text-lg font-semibold text-gray-900">
-                      {borrowing.produk_nama}
+                      {borrowing.produk_nama || borrowing.nama}
                     </h3>
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(borrowing.status)}`}>
                       {borrowing.status_display}

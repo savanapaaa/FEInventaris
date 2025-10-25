@@ -16,7 +16,29 @@ class InventarisAPI {
   }
 
   async adminRegister(userData) {
-    return axios.post('/api/auth/admin/register', userData);
+    console.log('🚀 adminRegister called with:', userData);
+    console.log('🔗 URL will be:', this.baseURL + '/api/auth/admin/register');
+    
+    try {
+      const response = await axios.post('/api/auth/admin/register', userData);
+      console.log('✅ adminRegister success:', response.data);
+      return response;
+    } catch (error) {
+      console.error('❌ adminRegister error:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        config: error.config
+      });
+      throw error;
+    }
+  }
+
+  async createUser(userData) {
+    return axios.post('/api/pengguna', userData);
+  }
+
+  async registerUser(userData) {
+    return axios.post('/api/register', userData);
   }
 
   // ========== DASHBOARD & STATISTICS ==========

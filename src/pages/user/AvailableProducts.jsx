@@ -93,7 +93,8 @@ const AvailableProducts = () => {
   // Filter products
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.nama.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = filterCategory === 'all' || product.nama_kategori === filterCategory;
+    const matchesCategory = filterCategory === 'all' || 
+                        (product.nama_kategori || product.kategori_nama) === filterCategory;
     return matchesSearch && matchesCategory;
   });
 
@@ -113,8 +114,17 @@ const AvailableProducts = () => {
         return;
       }
 
+      console.log('📤 Sending borrow request:', {
+        produk_id: productId,
+        jumlah_dipinjam: formData.jumlah_dipinjam,
+        tanggal_kembali_rencana: formData.tanggal_kembali_rencana,
+        keperluan: formData.keperluan,
+        kondisi_pinjam: formData.kondisi_pinjam
+      });
+
       await api.post('/api/peminjaman', {
         produk_id: productId,
+        jumlah_dipinjam: formData.jumlah_dipinjam,
         tanggal_kembali_rencana: formData.tanggal_kembali_rencana,
         keperluan: formData.keperluan,
         kondisi_pinjam: formData.kondisi_pinjam
@@ -127,7 +137,22 @@ const AvailableProducts = () => {
 
       setShowModal(false);
       setSelectedProduct(null);
-      alert('Peminjaman berhasil dikirim!');
+      
+      // Update local state to reduce stock immediately
+      setProducts(prevProducts => 
+        prevProducts.map(product => 
+          product.id === productId 
+            ? { 
+                ...product, 
+                jumlah_stok: product.jumlah_stok - formData.jumlah_dipinjam,
+                status_peminjaman: (product.jumlah_stok - formData.jumlah_dipinjam) <= 0 ? 'tidak_tersedia' : 'tersedia',
+                status_display: (product.jumlah_stok - formData.jumlah_dipinjam) <= 0 ? 'Stok Habis' : 'Tersedia'
+              }
+            : product
+        )
+      );
+      
+      alert(`Peminjaman berhasil! ${formData.jumlah_dipinjam} unit ${selectedProduct?.nama} telah dipinjam.`);
     } catch (error) {
       console.error('Error requesting product:', error);
       
@@ -249,7 +274,7 @@ const AvailableProducts = () => {
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-gray-500">Kategori:</span>
                     <span className="font-medium text-gray-700">
-                      {product.nama_kategori || '-'}
+                      {product.nama_kategori || product.kategori_nama || '-'}
                     </span>
                   </div>
                   

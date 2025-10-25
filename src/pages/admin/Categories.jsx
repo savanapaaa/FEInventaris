@@ -18,10 +18,16 @@ const Categories = () => {
 
   const fetchCategories = async () => {
     try {
+      console.log('🔍 Fetching categories...');
       const response = await axios.get('/api/kategori');
+      console.log('✅ Categories response:', response.data);
       setCategories(response.data.data || response.data);
     } catch (error) {
-      console.error('Error fetching categories:', error);
+      console.error('❌ Error fetching categories:', error);
+      
+      if (error.code === 'NETWORK_ERROR' || error.message.includes('Network Error')) {
+        alert('Koneksi ke server bermasalah. Pastikan backend berjalan di localhost:5000');
+      }
     } finally {
       setLoading(false);
     }
@@ -29,19 +35,44 @@ const Categories = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    console.log('📤 Category data yang akan dikirim:', formData);
+    
     try {
       if (selectedCategory) {
         // Update category
+        console.log('🔄 Updating category:', selectedCategory.id);
         await axios.put(`/api/kategori/${selectedCategory.id}`, formData);
+        alert('Kategori berhasil diperbarui!');
       } else {
         // Create new category
+        console.log('➕ Creating new category');
         await axios.post('/api/kategori', formData);
+        alert('Kategori berhasil ditambahkan!');
       }
       fetchCategories();
       closeModal();
     } catch (error) {
-      console.error('Error saving category:', error);
-      alert('Terjadi kesalahan saat menyimpan data kategori');
+      console.error('📋 Category error details:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        config: error.config
+      });
+      
+      let errorMessage = 'Terjadi kesalahan saat menyimpan data kategori';
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        const validationErrors = error.response.data.errors.map(err => `- ${err.msg}`).join('\n');
+        errorMessage = `Validasi gagal:\n${validationErrors}`;
+      } else if (error.code === 'NETWORK_ERROR' || error.message.includes('Network Error')) {
+        errorMessage = 'Koneksi ke server bermasalah. Pastikan backend berjalan di localhost:5000';
+      }
+      
+      alert(errorMessage);
     }
   };
 
@@ -57,11 +88,32 @@ const Categories = () => {
   const handleDelete = async (categoryId) => {
     if (window.confirm('Apakah Anda yakin ingin menghapus kategori ini? Produk yang menggunakan kategori ini akan terpengaruh.')) {
       try {
+        console.log('🗑️ Deleting category:', categoryId);
         await axios.delete(`/api/kategori/${categoryId}`);
+        alert('Kategori berhasil dihapus!');
         fetchCategories();
       } catch (error) {
-        console.error('Error deleting category:', error);
-        alert('Terjadi kesalahan saat menghapus kategori');
+        console.error('📋 Delete error details:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          config: error.config
+        });
+        
+        let errorMessage = 'Terjadi kesalahan saat menghapus kategori';
+        
+        if (error.response?.data?.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.response?.data?.error) {
+          errorMessage = error.response.data.error;
+        } else if (error.response?.status === 409) {
+          errorMessage = 'Kategori tidak dapat dihapus karena masih digunakan oleh produk lain';
+        } else if (error.response?.status === 404) {
+          errorMessage = 'Kategori tidak ditemukan';
+        } else if (error.code === 'NETWORK_ERROR' || error.message.includes('Network Error')) {
+          errorMessage = 'Koneksi ke server bermasalah. Pastikan backend berjalan di localhost:5000';
+        }
+        
+        alert(errorMessage);
       }
     }
   };

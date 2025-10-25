@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 
 const BorrowModal = ({ isOpen, onClose, onConfirm, product }) => {
   const [formData, setFormData] = useState({
+    jumlah_dipinjam: 1,
     tanggal_kembali_rencana: '',
     keperluan: 'Keperluan penggunaan barang kantor',
     kondisi_pinjam: 'Baik'
@@ -22,6 +23,19 @@ const BorrowModal = ({ isOpen, onClose, onConfirm, product }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    // Validate quantity tidak melebihi stok
+    const availableStock = product?.jumlah_stok || product?.stok || 0;
+    if (formData.jumlah_dipinjam > availableStock) {
+      alert(`Jumlah yang dipinjam tidak boleh melebihi stok tersedia (${availableStock} unit)`);
+      return;
+    }
+    
+    if (formData.jumlah_dipinjam < 1) {
+      alert('Jumlah yang dipinjam minimal 1 unit');
+      return;
+    }
+    
     onConfirm(product.id, formData);
   };
 
@@ -50,14 +64,32 @@ const BorrowModal = ({ isOpen, onClose, onConfirm, product }) => {
           <div className="bg-gray-50 rounded-lg p-4 mb-4">
             <h4 className="font-medium text-gray-900 mb-2">{product?.nama}</h4>
             <div className="text-sm text-gray-600 space-y-1">
-              <p>Kategori: {product?.nama_kategori || '-'}</p>
-              <p>Stok Tersedia: {product?.jumlah_stok} unit</p>
-              <p className="text-green-600 font-medium">Status: {product?.status_display}</p>
+              <p>Kategori: {product?.nama_kategori || product?.kategori_nama || '-'}</p>
+              <p>Stok Tersedia: {product?.jumlah_stok || product?.stok} unit</p>
+              <p className="text-green-600 font-medium">Status: {product?.status_display || product?.status_peminjaman}</p>
             </div>
           </div>
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Jumlah yang Dipinjam
+              </label>
+              <input
+                type="number"
+                value={formData.jumlah_dipinjam}
+                onChange={(e) => setFormData(prev => ({ ...prev, jumlah_dipinjam: parseInt(e.target.value) || 1 }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                min="1"
+                max={product?.jumlah_stok || product?.stok || 1}
+                required
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Maksimal {product?.jumlah_stok || product?.stok} unit tersedia
+              </p>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Tanggal Rencana Kembali

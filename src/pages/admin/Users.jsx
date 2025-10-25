@@ -21,10 +21,22 @@ const Users = () => {
 
   const fetchUsers = async () => {
     try {
+      console.log('🔍 Fetching users...');
       const response = await inventarisAPI.getUsers();
-      setUsers(response.data.data || response.data);
+      console.log('✅ Users response:', response.data);
+      
+      const usersData = response.data.data || response.data;
+      setUsers(Array.isArray(usersData) ? usersData : []);
     } catch (error) {
-      console.error('Error fetching users:', error);
+      console.error('❌ Error fetching users:', error);
+      
+      // Set empty array jika gagal fetch
+      setUsers([]);
+      
+      // Jika unauthorized, mungkin perlu login ulang
+      if (error.response?.status === 401) {
+        alert('Sesi Anda telah berakhir. Silakan login kembali.');
+      }
     } finally {
       setLoading(false);
     }
@@ -32,23 +44,71 @@ const Users = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
     try {
       if (selectedUser) {
         // Update user
         await inventarisAPI.updateUser(selectedUser.id, formData);
+        alert('Data pengguna berhasil diupdate!');
       } else {
-        // Create new user - menggunakan endpoint admin register
+        // Create new user - validasi password
         if (formData.kata_sandi !== formData.confirmPassword) {
           alert('Password tidak cocok!');
           return;
         }
-        await inventarisAPI.adminRegister(formData);
+        
+        // Validasi kompleksitas password
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/;
+        if (!passwordRegex.test(formData.kata_sandi)) {
+          alert('Password harus memenuhi syarat:\n- Minimal 6 karakter\n- Mengandung huruf kecil\n- Mengandung huruf besar\n- Mengandung angka\n\nContoh: Password123');
+          return;
+        }
+        
+        // Prepare data untuk backend
+        const userData = {
+          nama_pengguna: formData.nama_pengguna.trim(),
+          email: formData.email.trim().toLowerCase(),
+          kata_sandi: formData.kata_sandi,
+          peran: formData.peran
+        };
+        
+        // Debug: Log data yang akan dikirim
+        console.log('� Data yang akan dikirim:', userData);
+        console.log('🔑 Token tersedia:', !!localStorage.getItem('token'));
+        
+        // Gunakan endpoint yang benar
+        await inventarisAPI.adminRegister(userData);
+        alert('Pengguna berhasil ditambahkan!');
       }
+      
       fetchUsers();
       closeModal();
     } catch (error) {
-      console.error('Error saving user:', error);
-      alert('Terjadi kesalahan saat menyimpan data pengguna');
+      console.error('❌ Error saving user:', error);
+      
+      // Error handling yang detail
+      let errorMessage = 'Terjadi kesalahan saat menyimpan data pengguna';
+      
+      // Handle validation errors dari backend
+      if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        const validationErrors = error.response.data.errors.map(err => `- ${err.msg}`).join('\n');
+        errorMessage = `Validasi gagal:\n${validationErrors}`;
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      // Log detail untuk debugging
+      console.error('📋 Error details:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        url: error.config?.url
+      });
+      
+      alert(errorMessage);
     }
   };
 
@@ -232,7 +292,13 @@ const Users = () => {
                     onChange={(e) => setFormData({...formData, kata_sandi: e.target.value})}
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                     required={!selectedUser}
+                    placeholder={!selectedUser ? "Minimal 6 karakter, huruf besar, kecil & angka" : ""}
                   />
+                  {!selectedUser && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      Password harus mengandung huruf besar, huruf kecil, dan angka. Contoh: Password123
+                    </p>
+                  )}
                 </div>
                 {!selectedUser && (
                   <div>
