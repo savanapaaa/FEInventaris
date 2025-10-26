@@ -166,9 +166,9 @@ const UserDashboard = () => {
   return (
     <UserLayout>
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard User</h1>
-        <p className="text-gray-600 mt-2">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard User</h1>
+        <p className="text-gray-600 mt-2 text-sm sm:text-base">
           Daftar produk inventaris yang tersedia untuk dipinjam
         </p>
       </div>
@@ -190,16 +190,16 @@ const UserDashboard = () => {
       )}
 
       {/* Summary */}
-      <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl p-6 mb-8 text-white">
+      <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8 text-white">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold mb-2">Selamat Datang!</h2>
-            <p className="text-blue-100">
+            <h2 className="text-lg sm:text-xl font-semibold mb-2">Selamat Datang!</h2>
+            <p className="text-blue-100 text-sm sm:text-base">
               {Array.isArray(produk) ? produk.length : 0} produk tersedia untuk dipinjam
             </p>
           </div>
-          <div className="hidden md:block">
-            <svg className="w-16 h-16 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="hidden sm:block">
+            <svg className="w-12 h-12 sm:w-16 sm:h-16 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
             </svg>
           </div>
@@ -218,31 +218,31 @@ const UserDashboard = () => {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
           {produk.map((product) => (
-            <div key={product.id} className="bg-white rounded-xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+            <div key={product.id} className="bg-white rounded-xl shadow-lg p-4 sm:p-6 border border-gray-100 hover:shadow-xl transition-shadow duration-300">
               {/* Product Image Placeholder */}
-              <div className="w-full h-48 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg mb-4 flex items-center justify-center">
-                <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-full h-32 sm:h-48 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg mb-4 flex items-center justify-center">
+                <svg className="w-8 h-8 sm:w-12 sm:h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                 </svg>
               </div>
 
               {/* Product Info */}
               <div className="space-y-3">
-                <h3 className="font-semibold text-gray-900 text-lg">
+                <h3 className="font-semibold text-gray-900 text-base sm:text-lg line-clamp-2">
                   {product.nama}
                 </h3>
                 
                 <div className="space-y-2">
-                  <div className="flex justify-between items-center text-sm">
+                  <div className="flex justify-between items-center text-xs sm:text-sm">
                     <span className="text-gray-500">Kategori:</span>
-                    <span className="font-medium text-gray-700">
+                    <span className="font-medium text-gray-700 truncate ml-2">
                       {product.nama_kategori || product.kategori_nama || '-'}
                     </span>
                   </div>
                   
-                  <div className="flex justify-between items-center text-sm">
+                  <div className="flex justify-between items-center text-xs sm:text-sm">
                     <span className="text-gray-500">Stok:</span>
                     <span className={`font-medium ${(product.jumlah_stok || product.stok) > 0 ? 'text-green-600' : 'text-red-600'}`}>
                       {product.jumlah_stok || product.stok} unit

@@ -20,7 +20,7 @@ const AdminSidebar = ({ isOpen, setIsOpen }) => {
       )
     },
     {
-      name: 'Manajemen Pengguna',
+      name: 'Kelola Pengguna',
       path: '/admin/users',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -29,7 +29,7 @@ const AdminSidebar = ({ isOpen, setIsOpen }) => {
       )
     },
     {
-      name: 'Manajemen Produk',
+      name: 'Kelola Produk',
       path: '/admin/products',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -38,7 +38,7 @@ const AdminSidebar = ({ isOpen, setIsOpen }) => {
       )
     },
     {
-      name: 'Manajemen Kategori',
+      name: 'Kelola Kategori',
       path: '/admin/categories',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -47,7 +47,7 @@ const AdminSidebar = ({ isOpen, setIsOpen }) => {
       )
     },
     {
-      name: 'Manajemen Peminjaman',
+      name: 'Kelola Peminjaman',
       path: '/admin/borrowings',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -56,7 +56,7 @@ const AdminSidebar = ({ isOpen, setIsOpen }) => {
       )
     },
     {
-      name: 'Riwayat Aktivitas',
+      name: 'Aktivitas',
       path: '/admin/activity-logs',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -65,7 +65,7 @@ const AdminSidebar = ({ isOpen, setIsOpen }) => {
       )
     },
     {
-      name: 'Laporan Bulanan',
+      name: 'Laporan',
       path: '/admin/reports',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -91,11 +91,11 @@ const AdminSidebar = ({ isOpen, setIsOpen }) => {
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex items-center justify-between h-16 px-6 bg-gradient-to-r from-blue-600 to-purple-600">
-          <h1 className="text-white font-bold text-lg">Admin Panel</h1>
+        <div className="flex items-center justify-between h-16 px-4 lg:px-6 bg-gradient-to-r from-blue-600 to-purple-600">
+          <h1 className="text-white font-bold text-lg truncate">Admin Panel</h1>
           <button
             onClick={() => setIsOpen(false)}
-            className="lg:hidden text-white"
+            className="lg:hidden text-white p-1 rounded-md hover:bg-white hover:bg-opacity-20 transition-colors"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -103,23 +103,23 @@ const AdminSidebar = ({ isOpen, setIsOpen }) => {
           </button>
         </div>
 
-        <nav className="mt-8">
-          <div className="px-4 space-y-2">
+        <nav className="mt-6 lg:mt-8 h-full overflow-y-auto pb-20">
+          <div className="px-2 lg:px-4 space-y-1 lg:space-y-2">
             {navigation.map((item) => {
               const isActive = location.pathname === item.path;
               return (
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-200 ${
+                  className={`flex items-center px-3 lg:px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-200 group ${
                     isActive
                       ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
                   onClick={() => setIsOpen(false)}
                 >
-                  <span className="mr-3">{item.icon}</span>
-                  {item.name}
+                  <span className="mr-2 lg:mr-3 flex-shrink-0">{item.icon}</span>
+                  <span className="truncate">{item.name}</span>
                 </Link>
               );
             })}
