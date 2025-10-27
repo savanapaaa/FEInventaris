@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import axios from '../../api/axios';
+import { formatDateTime, formatAuditTimestamp, isOverdue } from '../../utils/dateUtils';
 
 const Borrowings = () => {
   const [borrowings, setBorrowings] = useState([]);
@@ -11,11 +12,17 @@ const Borrowings = () => {
   const [selectedBorrowing, setSelectedBorrowing] = useState(null);
 
   useEffect(() => {
-    fetchBorrowings();
+    fetchBorrowings(true); // Show loading on initial load
   }, []);
 
-  const fetchBorrowings = async () => {
+  const fetchBorrowings = async (showLoadingIndicator = false) => {
     try {
+      // Show loading only if explicitly requested (for manual refresh)
+      if (showLoadingIndicator) {
+        setLoading(true);
+      }
+      
+      console.log('🔄 Fetching borrowings from backend...');
       const response = await axios.get('/api/peminjaman');
       const data = response.data.data || response.data;
       
@@ -52,33 +59,91 @@ const Borrowings = () => {
       }
       
       setBorrowings(data);
+      console.log('✅ Borrowings data refreshed successfully');
     } catch (error) {
       console.error('❌ Error fetching borrowings from backend:', error);
       setBorrowings([]);
+      
+      // Show user-friendly error for manual refresh
+      if (showLoadingIndicator) {
+        alert('Gagal memuat data peminjaman. Silakan coba lagi.');
+      }
     } finally {
-      setLoading(false);
+      if (showLoadingIndicator) {
+        setLoading(false);
+      }
     }
   };
 
   const updateBorrowingStatus = async (borrowingId, newStatus) => {
     try {
+      console.log('🔄 Updating borrowing status:', { borrowingId, newStatus });
+      
       if (newStatus === 'dikembalikan' || newStatus === 'returned') {
-        // Gunakan endpoint kembalikan khusus
-        await axios.put(`/api/peminjaman/${borrowingId}/kembalikan`, {
-          kondisi_kembali: 'Baik',
-          catatan: 'Dikembalikan oleh admin'
+        // Check if this is confirming a pending return
+        const borrowing = borrowings.find(b => b.id === borrowingId);
+        console.log('📋 Found borrowing:', borrowing);
+        
+        if (borrowing && borrowing.status === 'pending_return') {
+          // Use CORRECT payload format from backend documentation
+          console.log('✅ Confirming pending return with correct format');
+          
+          const payload = {
+            approve: true,
+            catatan_admin: 'Pengembalian dikonfirmasi oleh admin'
+          };
+          console.log('📤 Sending CORRECT payload:', payload);
+          
+          await axios.put(`/api/peminjaman/${borrowingId}/confirm-return`, payload, {
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+        } else {
+          // Use old kembalikan endpoint for direct return by admin
+          console.log('🔄 Direct return by admin via kembalikan endpoint');
+          await axios.put(`/api/peminjaman/${borrowingId}/kembalikan`, {
+            kondisi_kembali: 'Baik',
+            catatan: 'Dikembalikan oleh admin'
+          });
+        }
+      } else if (newStatus === 'dipinjam' && borrowings.find(b => b.id === borrowingId)?.status === 'pending_return') {
+        // Reject pending return with CORRECT format
+        console.log('❌ Rejecting pending return with correct format');
+        const payload = {
+          approve: false,
+          catatan_admin: 'Pengembalian ditolak oleh admin'
+        };
+        console.log('📤 Sending CORRECT reject payload:', payload);
+        
+        await axios.put(`/api/peminjaman/${borrowingId}/confirm-return`, payload, {
+          headers: {
+            'Content-Type': 'application/json'
+          }
         });
       } else {
         // Update status biasa
+        console.log('🔄 Regular status update');
         await axios.put(`/api/peminjaman/${borrowingId}`, {
           status: newStatus
         });
       }
       
+      console.log('✅ Status update successful, refreshing data...');
+      
       // Refresh data
       fetchBorrowings();
     } catch (error) {
-      console.error('Error updating status:', error);
+      console.error('❌ Error updating status:', error);
+      console.error('📋 Error details:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      // Show user-friendly error message
+      alert(`Error: ${error.response?.data?.message || error.message || 'Gagal mengupdate status'}`);
     }
   };
 
@@ -100,6 +165,8 @@ const Borrowings = () => {
       case 'dipinjam':
       case 'borrowed':
         return 'bg-blue-100 text-blue-800';
+      case 'pending_return':
+        return 'bg-orange-100 text-orange-800';
       case 'dikembalikan':
       case 'returned':
         return 'bg-green-100 text-green-800';
@@ -118,6 +185,8 @@ const Borrowings = () => {
       case 'dipinjam':
       case 'borrowed':
         return 'Dipinjam';
+      case 'pending_return':
+        return 'Menunggu Konfirmasi';
       case 'dikembalikan':
       case 'returned':
         return 'Dikembalikan';
@@ -150,10 +219,26 @@ const Borrowings = () => {
           </div>
           
           <button
-            onClick={fetchBorrowings}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-shadow"
+            onClick={() => fetchBorrowings(true)}
+            disabled={loading}
+            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
           >
-            Refresh Data
+            {loading ? (
+              <>
+                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Memuat...</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>Refresh Data</span>
+              </>
+            )}
           </button>
         </div>
 
@@ -173,6 +258,7 @@ const Borrowings = () => {
                 <option value="all">Semua Status</option>
                 <option value="pending">Menunggu</option>
                 <option value="dipinjam">Dipinjam</option>
+                <option value="pending_return">Menunggu Konfirmasi Pengembalian</option>
                 <option value="dikembalikan">Dikembalikan</option>
                 <option value="ditolak">Ditolak</option>
               </select>
@@ -244,12 +330,18 @@ const Borrowings = () => {
                          borrowing.nama_lengkap || 'N/A'}
                       </td>
                       <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {borrowing.tanggal_pinjam || 'N/A'}
+                        {formatDateTime(borrowing.tanggal_pinjam)}
                       </td>
                       <td className="px-4 lg:px-6 py-4 text-sm text-gray-900">
-                        <div className="whitespace-nowrap">Rencana: {borrowing.tanggal_kembali_rencana || 'N/A'}</div>
+                        <div className="whitespace-nowrap">
+                          <span className="text-gray-600">Rencana:</span>
+                          <div className="font-medium">{formatDateTime(borrowing.tanggal_kembali_rencana)}</div>
+                        </div>
                         {borrowing.tanggal_kembali_aktual && (
-                          <div className="text-green-600 whitespace-nowrap">Aktual: {borrowing.tanggal_kembali_aktual}</div>
+                          <div className="text-green-600 whitespace-nowrap mt-1">
+                            <span className="text-gray-600">Aktual:</span>
+                            <div className="font-medium">{formatDateTime(borrowing.tanggal_kembali_aktual)}</div>
+                          </div>
                         )}
                       </td>
                       <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
@@ -269,8 +361,10 @@ const Borrowings = () => {
                           const isReturned = borrowing.status === 'dikembalikan' || 
                                            borrowing.status === 'returned' ||
                                            borrowing.status === 'completed';
+
+                          const isPendingReturn = borrowing.status === 'pending_return';
                           
-                          if (isReturned && fotoUrl) {
+                          if ((isReturned || isPendingReturn) && fotoUrl) {
                             // Ensure URL is complete with backend domain
                             const fullPhotoUrl = fotoUrl.startsWith('http') 
                               ? fotoUrl 
@@ -289,10 +383,12 @@ const Borrowings = () => {
                                     e.target.nextSibling.textContent = '❌ Foto Error';
                                   }}
                                 />
-                                <span className="text-green-600 text-xs hidden sm:inline">✓ Ada Foto</span>
+                                <span className={`text-xs hidden sm:inline ${isPendingReturn ? 'text-orange-600' : 'text-green-600'}`}>
+                                  {isPendingReturn ? '⏳ Perlu Verifikasi' : '✓ Ada Foto'}
+                                </span>
                               </div>
                             );
-                          } else if (isReturned) {
+                          } else if (isReturned || isPendingReturn) {
                             return <span className="text-red-400 text-xs">❌ Tidak Ada</span>;
                           } else {
                             return <span className="text-gray-400 text-xs">-</span>;
@@ -324,6 +420,22 @@ const Borrowings = () => {
                             >
                               Kembalikan
                             </button>
+                          )}
+                          {borrowing.status === 'pending_return' && (
+                            <>
+                              <button
+                                onClick={() => updateBorrowingStatus(borrowing.id, 'dikembalikan')}
+                                className="inline-flex items-center justify-center px-2 lg:px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                              >
+                                ✅ Konfirmasi Pengembalian
+                              </button>
+                              <button
+                                onClick={() => updateBorrowingStatus(borrowing.id, 'dipinjam')}
+                                className="inline-flex items-center justify-center px-2 lg:px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+                              >
+                                ❌ Tolak Pengembalian
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -365,7 +477,7 @@ const Borrowings = () => {
                   </div>
                   <div>
                     <span className="font-medium text-gray-700">Tanggal Kembali:</span>
-                    <span className="ml-2 text-gray-900">{selectedBorrowing.tanggal_kembali_aktual || 'N/A'}</span>
+                    <span className="ml-2 text-gray-900">{formatDateTime(selectedBorrowing.tanggal_kembali_aktual)}</span>
                   </div>
                   {selectedBorrowing.kondisi_kembali && (
                     <div>

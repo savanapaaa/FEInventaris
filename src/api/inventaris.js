@@ -163,6 +163,51 @@ class InventarisAPI {
     return axios.get(`/api/riwayat/tabel/${table}/${id}`);
   }
 
+  // ========== REPORTS ==========
+  async getReportPreview(type = 'lengkap', startDate, endDate) {
+    // Map frontend type to backend expected type
+    const typeMapping = {
+      'lengkap': 'lengkap',     // Keep as 'lengkap' since it works now
+      'ringkasan': 'ringkasan', // Keep as 'ringkasan' since it works
+      'peminjaman': 'peminjaman', // Use Indonesian terms
+      'inventaris': 'inventaris'  // Use Indonesian terms
+    };
+    
+    const backendType = typeMapping[type] || type;
+    
+    const params = new URLSearchParams();
+    params.append('type', backendType);
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    
+    console.log('🔍 Preview request:', { original: type, mapped: backendType, url: `/api/laporan/preview?${params.toString()}` });
+    
+    return axios.get(`/api/laporan/preview?${params.toString()}`);
+  }
+
+  async downloadReportPDF(type = 'lengkap', startDate, endDate) {
+    // Map frontend type to backend expected type  
+    const typeMapping = {
+      'lengkap': 'lengkap',     // Keep as 'lengkap' since it works now
+      'ringkasan': 'ringkasan', // Keep as 'ringkasan' since it works
+      'peminjaman': 'peminjaman', // Use Indonesian terms
+      'inventaris': 'inventaris'  // Use Indonesian terms
+    };
+    
+    const backendType = typeMapping[type] || type;
+    
+    const params = new URLSearchParams();
+    params.append('type', backendType);
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    
+    console.log('🔍 Download request:', { original: type, mapped: backendType, url: `/api/laporan/download?${params.toString()}` });
+    
+    return axios.get(`/api/laporan/download?${params.toString()}`, {
+      responseType: 'blob'
+    });
+  }
+
   // ========== HELPER METHODS ==========
   
   /**

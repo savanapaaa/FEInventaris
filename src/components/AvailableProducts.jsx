@@ -95,7 +95,7 @@ const AvailableProducts = () => {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Produk Tersedia</h2>
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">Barang</h2> 
       
       {products.length === 0 ? (
         <div className="text-center py-12">

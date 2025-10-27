@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import UserLayout from '../../components/layout/UserLayout';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api/axios';
+import { formatDateTime, formatAuditTimestamp, isOverdue } from '../../utils/dateUtils';
 
 const BorrowingHistory = () => {
   const { user } = useAuth();
@@ -332,21 +333,6 @@ const BorrowingHistory = () => {
     }
   };
 
-  // Format date helper
-  const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('id-ID', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      });
-    } catch (error) {
-      return dateString;
-    }
-  };
-
   // Get status color
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
@@ -622,10 +608,10 @@ const BorrowingHistory = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           <div>
-                            <div>Pinjam: {formatDate(item.tanggal_pinjam)}</div>
-                            <div>Rencana: {formatDate(item.tanggal_kembali_rencana)}</div>
+                            <div>Pinjam: {formatDateTime(item.tanggal_pinjam)}</div>
+                            <div>Rencana: {formatDateTime(item.tanggal_kembali_rencana)}</div>
                             {item.tanggal_kembali_aktual && (
-                              <div>Aktual: {formatDate(item.tanggal_kembali_aktual)}</div>
+                              <div>Aktual: {formatDateTime(item.tanggal_kembali_aktual)}</div>
                             )}
                           </div>
                         </td>

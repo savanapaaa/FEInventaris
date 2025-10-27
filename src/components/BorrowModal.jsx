@@ -36,7 +36,16 @@ const BorrowModal = ({ isOpen, onClose, onConfirm, product }) => {
       return;
     }
     
-    onConfirm(product.id, formData);
+    // SMART SOLUTION: Kirim DATE format, backend yang convert ke TIMESTAMP
+    // Ini sesuai dengan yang dijelaskan: "frontend bisa kirim tanggal saja dan backend auto-add time"
+    const formDataWithDate = {
+      ...formData,
+      tanggal_kembali_rencana: formData.tanggal_kembali_rencana // Backend auto-convert ke TIMESTAMP
+    };
+    
+    console.log('✅ BorrowModal - Sending DATE format (backend will convert to TIMESTAMP):', formDataWithDate);
+    
+    onConfirm(product.id, formDataWithDate);
   };
 
   if (!isOpen) return null;

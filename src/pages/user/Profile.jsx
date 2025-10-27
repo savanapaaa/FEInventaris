@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import UserLayout from '../../components/layout/UserLayout';
 import { useAuth } from '../../context/AuthContext';
+import { formatAuditTimestamp } from '../../utils/dateUtils';
 
 const Profile = () => {
   const { user, setUser } = useAuth();
@@ -201,18 +202,6 @@ const Profile = () => {
       confirm_password: ''
     });
     setError('');
-  };
-
-  // Format date
-  const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('id-ID', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
   };
 
   if (loading) {
@@ -511,7 +500,7 @@ const Profile = () => {
                     Pastikan akun Anda menggunakan password yang panjang dan acak untuk tetap aman.
                   </p>
                   <p className="text-xs sm:text-sm text-gray-500">
-                    Password terakhir diubah: {formatDate(profile.updated_at)}
+                    Password terakhir diubah: {formatAuditTimestamp(profile.updated_at)}
                   </p>
                 </div>
               )}
@@ -537,14 +526,14 @@ const Profile = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Tanggal Daftar
                 </label>
-                <p className="text-gray-900 text-sm">{formatDate(profile.created_at)}</p>
+                <p className="text-gray-900 text-sm">{formatAuditTimestamp(profile.created_at)}</p>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Login Terakhir
                 </label>
-                <p className="text-gray-900 text-sm">{formatDate(profile.last_login)}</p>
+                <p className="text-gray-900 text-sm">{formatAuditTimestamp(profile.last_login)}</p>
               </div>
 
               <div>

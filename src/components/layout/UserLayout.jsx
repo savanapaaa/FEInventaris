@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import Navbar from '../Navbar';
 import UserSidebar from './UserSidebar';
+import WhatsAppCS from '../WhatsAppCS';
 
 const UserLayout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -25,6 +26,9 @@ const UserLayout = ({ children }) => {
           </main>
         </div>
       </div>
+
+      {/* WhatsApp Customer Service Floating Button */}
+      <WhatsAppCS />
     </div>
   );
 };

@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import UserLayout from '../../components/layout/UserLayout';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api/axios';
+import { formatDateTime, formatAuditTimestamp, isOverdue, getDaysRemaining } from '../../utils/dateUtils';
 
 const MyBorrowings = () => {
   const { user } = useAuth();
@@ -34,6 +35,7 @@ const MyBorrowings = () => {
     { value: 'pending', label: 'Menunggu Persetujuan' },
     { value: 'approved', label: 'Disetujui' },
     { value: 'dipinjam', label: 'Dipinjam' },
+    { value: 'pending_return', label: 'Menunggu Konfirmasi Pengembalian' },
     { value: 'dikembalikan', label: 'Dikembalikan' },
     { value: 'ditolak', label: 'Ditolak' }
   ];
@@ -97,8 +99,8 @@ const MyBorrowings = () => {
                 id: 101,
                 produk_nama: "Laptop Dell XPS 13",
                 kategori: "Elektronik",
-                tanggal_pinjam: "2025-10-20",
-                tanggal_kembali_rencana: "2025-10-27", 
+                tanggal_pinjam: "2025-10-20 08:30:00",
+                tanggal_kembali_rencana: "2025-10-27 17:00:00", 
                 tanggal_kembali_aktual: null,
                 status: "borrowed",
                 status_display: "Sedang Dipinjam",
@@ -112,9 +114,9 @@ const MyBorrowings = () => {
                 id: 102,
                 produk_nama: "Projektor",
                 kategori: "Elektronik", 
-                tanggal_pinjam: "2025-10-15",
-                tanggal_kembali_rencana: "2025-10-22",
-                tanggal_kembali_aktual: "2025-10-21",
+                tanggal_pinjam: "2025-10-15 09:15:00",
+                tanggal_kembali_rencana: "2025-10-22 17:00:00",
+                tanggal_kembali_aktual: "2025-10-21 16:30:00",
                 status: "returned",
                 status_display: "Sudah Dikembalikan",
                 keperluan: "Presentasi client",
@@ -183,13 +185,31 @@ const MyBorrowings = () => {
                 tanggal_pinjam: "2025-10-24",
                 tanggal_kembali_rencana: "2025-10-30",
                 tanggal_kembali_aktual: null,
-                status: "dipinjam", // Konsisten dengan admin
-                status_display: "Dipinjam",
+                status: "pending_return", // Status baru untuk testing
+                status_display: "Menunggu Konfirmasi Pengembalian",
                 keperluan: "Keperluan penggunaan barang kantor",
+                kondisi_pinjam: "Baik",
+                kondisi_kembali: "Baik",
+                catatan_pengembalian: "Mouse dikembalikan dalam kondisi baik",
+                foto_bukti_pengembalian: "https://via.placeholder.com/300x200/f97316/ffffff?text=Mouse+Pending", // Mock foto pending
+                submitted_return_date: "2025-10-25",
+                catatan_admin: null,
+                created_at: "2025-10-24T14:00:00Z"
+              },
+              {
+                id: 304,
+                produk_nama: "Keyboard Gaming",
+                kategori: "Elektronik",
+                tanggal_pinjam: "2025-10-22",
+                tanggal_kembali_rencana: "2025-10-29",
+                tanggal_kembali_aktual: null,
+                status: "dipinjam", // Masih dipinjam
+                status_display: "Dipinjam",
+                keperluan: "Gaming tournament",
                 kondisi_pinjam: "Baik",
                 kondisi_kembali: null,
                 catatan_admin: null,
-                created_at: "2025-10-24T14:00:00Z"
+                created_at: "2025-10-22T10:00:00Z"
               }
             ];
           } else {
@@ -213,7 +233,7 @@ const MyBorrowings = () => {
     return filterStatus === 'all' || borrowing.status === filterStatus;
   });
 
-  // Status badge color - selaraskan dengan admin
+  // Status badge color - selaraskan dengan backend status
   const getStatusColor = (status) => {
     switch (status) {
       case 'pending':
@@ -223,6 +243,8 @@ const MyBorrowings = () => {
       case 'dipinjam':
       case 'borrowed':
         return 'bg-green-100 text-green-800';
+      case 'pending_return':
+        return 'bg-orange-100 text-orange-800';
       case 'dikembalikan':
       case 'returned':
         return 'bg-gray-100 text-gray-800';
@@ -234,22 +256,6 @@ const MyBorrowings = () => {
       default:
         return 'bg-gray-100 text-gray-800';
     }
-  };
-
-  // Format date
-  const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('id-ID');
-  };
-
-  // Calculate days remaining
-  const getDaysRemaining = (returnDate) => {
-    if (!returnDate) return null;
-    const today = new Date();
-    const returnDateObj = new Date(returnDate);
-    const diffTime = returnDateObj - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
   };
 
   // Handle return item - open modal instead of direct return
@@ -307,7 +313,7 @@ const MyBorrowings = () => {
       
       console.log('📤 Submitting return with photo to backend...');
       console.log('📋 Request details:', {
-        endpoint: `/api/peminjaman/${selectedBorrowing.id}/kembalikan`,
+        endpoint: `/api/peminjaman/${selectedBorrowing.id}/submit-return`,
         fileSize: `${(returnPhoto.size / 1024 / 1024).toFixed(2)}MB`,
         fileName: returnPhoto.name,
         fileType: returnPhoto.type,
@@ -315,8 +321,8 @@ const MyBorrowings = () => {
         catatan: returnNotes || 'Barang dikembalikan oleh user'
       });
       
-      // Call backend API endpoint
-      const response = await api.put(`/api/peminjaman/${selectedBorrowing.id}/kembalikan`, formData, {
+      // Call NEW backend API endpoint - Submit return for admin approval (two-step process)
+      const response = await api.post(`/api/peminjaman/${selectedBorrowing.id}/submit-return`, formData, {
         headers: { 
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'
@@ -324,26 +330,27 @@ const MyBorrowings = () => {
       });
       
       const apiResponse = response.data;
-      console.log('✅ Item returned successfully:', apiResponse);
+      console.log('✅ Return submitted for admin verification:', apiResponse);
 
-      // Update borrowings state with backend response
+      // Update borrowings state - Backend sudah set status ke "pending_return"
       setBorrowings(prevBorrowings => 
         prevBorrowings.map(borrowing => 
           borrowing.id === selectedBorrowing.id 
             ? { 
                 ...borrowing, 
-                status: 'dikembalikan',
-                status_display: 'Dikembalikan',
-                tanggal_kembali_aktual: apiResponse.data?.tanggal_kembali_aktual || new Date().toISOString().split('T')[0],
+                // Backend response sudah proper dengan status pending_return
+                status: 'pending_return',
+                status_display: 'Menunggu Konfirmasi Admin',
                 kondisi_kembali: returnCondition,
                 catatan_pengembalian: returnNotes || 'Barang dikembalikan oleh user',
-                foto_bukti_pengembalian: apiResponse.data?.foto_bukti_pengembalian || apiResponse.foto_url
+                foto_bukti_pengembalian: apiResponse.data?.foto_bukti_pengembalian || apiResponse.foto_url,
+                tanggal_submit_return: apiResponse.data?.tanggal_submit_return || new Date().toISOString().split('T')[0]
               }
             : borrowing
         )
       );
 
-      showToast(apiResponse.message || 'Item berhasil dikembalikan dengan bukti foto!', 'success');
+      showToast('Pengembalian berhasil diajukan! Menunggu konfirmasi admin.', 'success');
       setShowReturnModal(false);
       
     } catch (error) {
@@ -492,6 +499,7 @@ const MyBorrowings = () => {
                     <h3 className="text-lg font-semibold text-gray-900">
                       {borrowing.produk_nama || borrowing.nama}
                     </h3>
+                    {/* Show status based on backend status */}
                     <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(borrowing.status)}`}>
                       {borrowing.status_display}
                     </span>
@@ -504,11 +512,11 @@ const MyBorrowings = () => {
                     </div>
                     <div>
                       <span className="text-gray-500">Tanggal Pinjam:</span>
-                      <p className="font-medium">{formatDate(borrowing.tanggal_pinjam)}</p>
+                      <p className="font-medium">{formatDateTime(borrowing.tanggal_pinjam)}</p>
                     </div>
                     <div>
                       <span className="text-gray-500">Tanggal Kembali Rencana:</span>
-                      <p className="font-medium">{formatDate(borrowing.tanggal_kembali_rencana)}</p>
+                      <p className="font-medium">{formatDateTime(borrowing.tanggal_kembali_rencana)}</p>
                     </div>
                     <div className="sm:col-span-2 lg:col-span-1">
                       <span className="text-gray-500">Keperluan:</span>
@@ -521,7 +529,7 @@ const MyBorrowings = () => {
                     {borrowing.tanggal_kembali_aktual && (
                       <div>
                         <span className="text-gray-500">Tanggal Kembali Aktual:</span>
-                        <p className="font-medium">{formatDate(borrowing.tanggal_kembali_aktual)}</p>
+                        <p className="font-medium">{formatDateTime(borrowing.tanggal_kembali_aktual)}</p>
                       </div>
                     )}
                   </div>
@@ -534,32 +542,85 @@ const MyBorrowings = () => {
                   )}
 
                   {/* Foto Bukti Pengembalian */}
-                  {(borrowing.status === 'dikembalikan' || borrowing.status === 'returned') && borrowing.foto_bukti_pengembalian && (
-                    <div className="mt-4 p-3 bg-green-50 rounded-lg">
-                      <span className="text-green-700 text-sm font-medium mb-2 block">📸 Foto Bukti Pengembalian:</span>
-                      <div className="flex items-start space-x-3">
-                        <img
-                          src={borrowing.foto_bukti_pengembalian}
-                          alt="Bukti Pengembalian"
-                          className="w-24 h-24 object-cover rounded-lg border-2 border-green-200 cursor-pointer hover:border-green-400 transition-colors"
-                          onClick={() => window.open(borrowing.foto_bukti_pengembalian, '_blank')}
-                        />
-                        <div className="flex-1">
-                          <p className="text-sm text-green-700">
-                            <span className="font-medium">Kondisi:</span> {borrowing.kondisi_kembali || 'Baik'}
-                          </p>
-                          {borrowing.catatan_pengembalian && (
-                            <p className="text-sm text-green-700 mt-1">
-                              <span className="font-medium">Catatan:</span> {borrowing.catatan_pengembalian}
-                            </p>
+                  {(() => {
+                    const fotoUrl = borrowing.foto_bukti_pengembalian || 
+                                   borrowing.foto_bukti || 
+                                   borrowing.photo_evidence || 
+                                   borrowing.bukti_foto ||
+                                   borrowing.evidence_photo;
+                    
+                    const isReturned = borrowing.status === 'dikembalikan' || 
+                                     borrowing.status === 'returned' ||
+                                     borrowing.status === 'completed';
+                    
+                    const isPendingReturn = borrowing.status === 'pending_return';
+                    
+                    if ((isReturned || isPendingReturn) && fotoUrl) {
+                      // Build complete URL with backend domain
+                      const fullPhotoUrl = fotoUrl.startsWith('http') 
+                        ? fotoUrl 
+                        : `http://localhost:5000${fotoUrl.startsWith('/') ? '' : '/'}${fotoUrl}`;
+                      
+                      return (
+                        <div className={`mt-4 p-3 rounded-lg ${isPendingReturn ? 'bg-orange-50' : 'bg-green-50'}`}>
+                          <span className={`text-sm font-medium mb-2 block ${isPendingReturn ? 'text-orange-700' : 'text-green-700'}`}>
+                            📸 Foto Bukti Pengembalian:
+                            {isPendingReturn && <span className="ml-2 text-xs">(Menunggu Konfirmasi Admin)</span>}
+                          </span>
+                          <div className="flex items-start space-x-3">
+                            <img
+                              src={fullPhotoUrl}
+                              alt="Bukti Pengembalian"
+                              className={`w-24 h-24 object-cover rounded-lg border-2 cursor-pointer transition-colors ${
+                                isPendingReturn 
+                                  ? 'border-orange-200 hover:border-orange-400' 
+                                  : 'border-green-200 hover:border-green-400'
+                              }`}
+                              onClick={() => window.open(fullPhotoUrl, '_blank')}
+                              onError={(e) => {
+                                console.error('❌ Photo load error for user view:', fullPhotoUrl);
+                                console.error('Original fotoUrl:', fotoUrl);
+                                e.target.style.display = 'none';
+                                e.target.nextElementSibling.innerHTML = '<span class="text-red-500 text-sm">❌ Error memuat foto</span>';
+                              }}
+                            />
+                            <div className="flex-1">
+                              <p className={`text-sm ${isPendingReturn ? 'text-orange-700' : 'text-green-700'}`}>
+                                <span className="font-medium">Kondisi:</span> {borrowing.kondisi_kembali || 'Baik'}
+                              </p>
+                              {borrowing.catatan_pengembalian && (
+                                <p className={`text-sm mt-1 ${isPendingReturn ? 'text-orange-700' : 'text-green-700'}`}>
+                                  <span className="font-medium">Catatan:</span> {borrowing.catatan_pengembalian}
+                                </p>
+                              )}
+                              {isPendingReturn && borrowing.tanggal_submit_return && (
+                                <p className="text-sm text-orange-700 mt-1">
+                                  <span className="font-medium">Diajukan:</span> {formatAuditTimestamp(borrowing.tanggal_submit_return)}
+                                </p>
+                              )}
+                              <p className={`text-xs mt-2 ${isPendingReturn ? 'text-orange-600' : 'text-green-600'}`}>
+                                Klik foto untuk memperbesar
+                              </p>
+                            </div>
+                          </div>
+                          {isPendingReturn && (
+                            <div className="mt-3 p-2 bg-orange-100 rounded border-l-4 border-orange-400">
+                              <p className="text-orange-800 text-sm">
+                                ⏳ <strong>Status:</strong> Menunggu admin memverifikasi pengembalian Anda
+                              </p>
+                            </div>
                           )}
-                          <p className="text-xs text-green-600 mt-2">
-                            Klik foto untuk memperbesar
-                          </p>
                         </div>
-                      </div>
-                    </div>
-                  )}
+                      );
+                    } else if (isReturned || isPendingReturn) {
+                      return (
+                        <div className="mt-4 p-3 bg-yellow-50 rounded-lg">
+                          <span className="text-yellow-700 text-sm">📷 Foto bukti pengembalian tidak tersedia</span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
 
                   {/* Days remaining indicator and Return Button */}
@@ -615,11 +676,19 @@ const MyBorrowings = () => {
                             <svg className="w-4 h-4 mr-1 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                            <span className="hidden sm:inline">Kembalikan</span>
+                            <span className="hidden sm:inline">Ajukan Pengembalian</span>
                             <span className="sm:hidden">Return</span>
                           </>
                         )}
                       </button>
+                    )}
+
+                    {/* Status Pending Return - Informasi untuk user */}
+                    {borrowing.status === 'pending_return' && (
+                      <div className="bg-orange-100 border border-orange-300 text-orange-800 px-3 py-2 rounded-lg text-center">
+                        <div className="text-sm font-medium">⏳ Menunggu Konfirmasi</div>
+                        <div className="text-xs">Admin sedang memverifikasi</div>
+                      </div>
                     )}
                   </div>
               </div>
@@ -636,7 +705,7 @@ const MyBorrowings = () => {
               {/* Modal Header */}
               <div className="flex items-center justify-between pb-3 border-b">
                 <h3 className="text-lg font-semibold text-gray-900">
-                  Kembalikan Item
+                  Ajukan Pengembalian Item
                 </h3>
                 <button
                   onClick={() => setShowReturnModal(false)}
@@ -657,7 +726,7 @@ const MyBorrowings = () => {
                   Kategori: {selectedBorrowing.kategori}
                 </p>
                 <p className="text-sm text-gray-600">
-                  Dipinjam: {formatDate(selectedBorrowing.tanggal_pinjam)}
+                  Dipinjam: {formatDateTime(selectedBorrowing.tanggal_pinjam)}
                 </p>
               </div>
 
@@ -770,7 +839,7 @@ const MyBorrowings = () => {
                       Memproses...
                     </div>
                   ) : (
-                    'Kembalikan Item'
+                    'Ajukan Pengembalian'
                   )}
                 </button>
               </div>

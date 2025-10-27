@@ -16,6 +16,8 @@ import Users from './pages/admin/Users';
 import Products from './pages/admin/Products';
 import Categories from './pages/admin/Categories';
 import Borrowings from './pages/admin/Borrowings';
+import Reports from './pages/admin/Reports';
+import ReportErrorBoundary from './components/ReportErrorBoundary';
 
 // Import User Pages
 import AvailableProducts from './pages/user/AvailableProducts';
@@ -146,7 +148,9 @@ const AppRoutes = () => {
         path="/admin/reports"
         element={
           <ProtectedRoute requiredRole="admin">
-            <div>Monthly Reports - Coming Soon</div>
+            <ReportErrorBoundary>
+              <Reports />
+            </ReportErrorBoundary>
           </ProtectedRoute>
         }
       />

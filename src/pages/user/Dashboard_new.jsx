@@ -164,10 +164,10 @@ const UserDashboard = () => {
       // SMART: Kirim DATE format, backend auto-convert ke TIMESTAMP
       const response = await api.post('/api/peminjaman', {
         produk_id: productId,
-        jumlah_dipinjam: formData.jumlah_dipinjam,
-        tanggal_kembali_rencana: formData.tanggal_kembali_rencana, // Backend handles timestamp conversion
-        keperluan: formData.keperluan,
-        kondisi_pinjam: formData.kondisi_pinjam
+        jumlah_dipinjam: formData.quantity,
+        tanggal_peminjaman: formData.startDate, // Backend handles timestamp conversion
+        tanggal_kembali_rencana: formData.endDate, // Backend handles timestamp conversion
+        keperluan: formData.purpose
       });
 
       console.log('📤 Borrowing request response:', response.data);
@@ -255,25 +255,14 @@ const UserDashboard = () => {
             >
               {/* Product Image */}
               <div className="h-48 bg-gray-200 flex items-center justify-center">
-                {(item.foto || item.image || item.productImage || item.gambar) ? (
+                {item.foto ? (
                   <img
-                    src={(() => {
-                      const imageField = item.foto || item.image || item.productImage || item.gambar;
-                      console.log('🖼️ Dashboard image field for', item.nama, ':', imageField);
-                      if (imageField.startsWith('http')) {
-                        return imageField;
-                      }
-                      return `http://localhost:5000${imageField.startsWith('/') ? imageField : `/${imageField}`}`;
-                    })()}
+                    src={item.foto.startsWith('http') ? item.foto : `http://localhost:5000${item.foto}`}
                     alt={item.nama}
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      console.log('❌ Dashboard image error for:', item.nama, e.target.src);
                       e.target.onerror = null;
                       e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik02MCA2MEgxNDBWMTQwSDYwVjYwWiIgZmlsbD0iI0Q1RDVENSIvPgo8L3N2Zz4K';
-                    }}
-                    onLoad={(e) => {
-                      console.log('✅ Dashboard image loaded for:', item.nama, e.target.src);
                     }}
                   />
                 ) : (
